@@ -105,4 +105,18 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection using CV
-        raise NotImplementedError
+
+        score_cv = float(-inf)
+        model_cv = GaussianHMM()
+        kf = KFold()
+        num_hidstates = self.max_n_components() - self.min_n_components
+        for train_n, test_n in kf.split(self.sequences):
+            x1, len1 = train_n.get_word_Xlengths(self.words)
+            model = GaussianHMM(n_components=num_hidstates, n_iter=1000).fit(x1, len1)
+            logL = model.score(x1, len1)
+            if logL > score_cv:
+                score_cv = logL
+                model_cv = model
+        return model_cv
+
+        #raise NotImplementedError

@@ -10,6 +10,13 @@ import pandas as pd
 from asl_data import AslDb
 from asl_utils import test_features_tryit
 
+import warnings
+from hmmlearn.hmm import GaussianHMM
+
+import math
+from matplotlib import (cm, pyplot as plt, mlab)
+
+
 
 asl = AslDb() # initializes the database
 #print(asl.df.head()) # displays the first five rows of the asl database, indexed by video and frame
@@ -107,8 +114,67 @@ asl.df['custom-ly'] = asl.df['grnd-ly'] / asl.df['norm-ly']
 
 features_custom = ['custom-rx', 'custom-ry', 'custom-lx', 'custom-ly']
 
+#print(asl.df.head())
 
-print(asl.df.head())
+
+def train_a_word(word, num_hidden_states, features):
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    training = asl.build_training(features)
+    X, lengths = training.get_word_Xlengths(word)
+    model = GaussianHMM(n_components=num_hidden_states, n_iter=1000).fit(X, lengths)
+    logL = model.score(X, lengths)
+    return model, logL
+
+
+demoword = 'BOOK'
+model, logL = train_a_word(demoword, 3, features_ground)
+print("Number of states trained in model for {} is {}".format(demoword, model.n_components))
+print("logL = {}".format(logL))
+
+
+def show_model_stats(word, model):
+    print("Number of states trained in model for {} is {}".format(word, model.n_components))
+    variance = np.array([np.diag(model.covars_[i]) for i in range(model.n_components)])
+    for i in range(model.n_components):  # for each hidden state
+        print("hidden state #{}".format(i))
+        print("mean = ", model.means_[i])
+        print("variance = ", variance[i])
+        print()
+
+
+show_model_stats(demoword, model)
+
+my_testword = 'CHOCOLATE'
+model, logL = train_a_word(my_testword, 3, features_ground) # Experiment here with different parameters
+show_model_stats(my_testword, model)
+print("logL = {}".format(logL))
+
+#%matplotlib inline
+
+
+def visualize(word, model):
+    """ visualize the input model for a particular word """
+    variance = np.array([np.diag(model.covars_[i]) for i in range(model.n_components)])
+    figures = []
+    for parm_idx in range(len(model.means_[0])):
+        xmin = int(min(model.means_[:, parm_idx]) - max(variance[:, parm_idx]))
+        xmax = int(max(model.means_[:, parm_idx]) + max(variance[:, parm_idx]))
+        fig, axs = plt.subplots(model.n_components, sharex=True, sharey=False)
+        colours = cm.rainbow(np.linspace(0, 1, model.n_components))
+        for i, (ax, colour) in enumerate(zip(axs, colours)):
+            x = np.linspace(xmin, xmax, 100)
+            mu = model.means_[i, parm_idx]
+            sigma = math.sqrt(np.diag(model.covars_[i])[parm_idx])
+            ax.plot(x, mlab.normpdf(x, mu, sigma), c=colour)
+            ax.set_title("{} feature {} hidden state #{}".format(word, parm_idx, i))
+
+            ax.grid(True)
+        figures.append(plt)
+    for p in figures:
+        p.show()
+
+
+visualize(my_testword, model)
 
 
 
