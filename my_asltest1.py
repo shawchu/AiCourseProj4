@@ -16,7 +16,12 @@ from hmmlearn.hmm import GaussianHMM
 import math
 from matplotlib import (cm, pyplot as plt, mlab)
 
+from my_model_selectors import SelectorConstant
+from my_model_selectors import SelectorCV
 
+from sklearn.model_selection import KFold
+
+import timeit
 
 asl = AslDb() # initializes the database
 #print(asl.df.head()) # displays the first five rows of the asl database, indexed by video and frame
@@ -176,7 +181,29 @@ def visualize(word, model):
 
 visualize(my_testword, model)
 
+training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
+word = 'FISH' # Experiment here with different words
+model = SelectorConstant(training.get_all_sequences(), training.get_all_Xlengths(), word, n_constant=3).select()
+print("Number of states trained in model for {} is {}".format(word, model.n_components))
 
 
+# training = asl.build_training(features_ground) # Experiment here with different feature sets
+# word = 'FISH' # Experiment here with different words
+# word_sequences = training.get_word_sequences(word)
+# split_method = KFold()
+# #print(self.n_splits)
+# for cv_train_idx, cv_test_idx in split_method.split(word_sequences):
+#     print("Train fold indices:{} Test fold indices:{}".format(cv_train_idx, cv_test_idx))  # view indices of the folds
 
-
+words_to_train = ['FISH', 'BOOK']
+training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
+sequences = training.get_all_sequences()
+Xlengths = training.get_all_Xlengths()
+for word in words_to_train:
+    start = timeit.default_timer()
+    model = SelectorCV(sequences, Xlengths, word, min_n_components=2, max_n_components=15, random_state = 14).select()
+    end = timeit.default_timer()-start
+    if model is not None:
+        print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
+    else:
+        print("Training failed for {}".format(word))

@@ -77,7 +77,31 @@ class SelectorBIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on BIC scores
-        raise NotImplementedError
+
+        num_features = 4
+
+        score_bic = float('-inf')
+        model_bic = None
+        logL_array = []
+
+        for component_n in range(self.min_n_components, self.max_n_components + 1):
+            for x_train, len_train in self.sequences:
+
+                try:
+                    p_param = component_n * component_n + 2 * component_n * len(self.X[0]) - 1
+                    model = GaussianHMM(n_components=component_n, n_iter=1000).fit(x_train, len_train)
+                    logL = model.score(x_train, len_train)
+                    running_score = -2 * logL + p_param * math.log(len(self.sequences))
+                except:
+                    pass
+
+            if running_score > score_bic:
+                score_bic = running_score
+                model_bic = model
+
+        return model_bic
+
+        #raise NotImplementedError
 
 
 class SelectorDIC(ModelSelector):
@@ -106,17 +130,33 @@ class SelectorCV(ModelSelector):
 
         # TODO implement model selection using CV
 
-        score_cv = float(-inf)
-        model_cv = GaussianHMM()
-        kf = KFold()
-        num_hidstates = self.max_n_components() - self.min_n_components
-        for train_n, test_n in kf.split(self.sequences):
-            x1, len1 = train_n.get_word_Xlengths(self.words)
-            model = GaussianHMM(n_components=num_hidstates, n_iter=1000).fit(x1, len1)
-            logL = model.score(x1, len1)
-            if logL > score_cv:
-                score_cv = logL
+        score_cv = float('-inf')
+        model_cv = None
+        logL_array = []
+        #kf = KFold(n_splits=min(3, len(self.lengths)))
+        #num_hidstates = self.max_n_components - self.min_n_components
+
+        for component_n in range(self.min_n_components, self.max_n_components + 1):
+            kf = KFold(n_splits=min(3, len(self.lengths)))
+
+            for train_n, test_n in kf.split(self.sequences):
+                try:
+                    #x1, len1 = train_n.get_word_Xlengths(self.words)
+                    x_train, len_train = combine_sequences(train_n, self.sequences)
+                    x_test, len_test = combine_sequences(test_n, self.sequences)
+
+                    model = GaussianHMM(n_components=component_n, n_iter=1000).fit(x_train, len_train)
+                    logL = model.score(x_test, len_test)
+                    logL_array.append(logL)
+                except:
+                    pass
+
+            mean_score = np.mean(logL_array)
+
+            if mean_score > score_cv:
+                score_cv = mean_score
                 model_cv = model
+
         return model_cv
 
         #raise NotImplementedError
